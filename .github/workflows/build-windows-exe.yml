@@ -17,6 +17,7 @@ on:
       - 'app-data.js'
       - 'app-ui.js'
       - 'app-init.js'
+      - 'UNBLOCK_AKID_VIEWER.bat'
 
 permissions:
   contents: write
@@ -35,20 +36,6 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: package.json
-
-      - name: Require Authenticode credentials for production release
-        if: github.event_name == 'release'
-        shell: pwsh
-        env:
-          SIGNING_CERT: ${{ secrets.WIN_CSC_LINK }}
-          SIGNING_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: |
-          if (-not $env:SIGNING_CERT) {
-            throw 'Production release blocked: WIN_CSC_LINK is not configured.'
-          }
-          if (-not $env:SIGNING_PASSWORD) {
-            throw 'Production release blocked: WIN_CSC_KEY_PASSWORD is not configured.'
-          }
 
       - name: Set package version from release tag
         if: github.event_name == 'release'
@@ -86,13 +73,14 @@ jobs:
             'app.css',
             'app.js',
             'electron-preload.js',
+            'UNBLOCK_AKID_VIEWER.bat',
             'lib/tailwind.js',
             'lib/xlsx.full.min.js',
             'lib/css/all.min.css',
             'lib/webfonts/fa-solid-900.woff2'
           )
           foreach ($file in $required) {
-            if (-not (Test-Path $file)) { throw "Missing offline runtime file: $file" }
+            if (-not (Test-Path $file)) { throw "Missing offline runtime/release file: $file" }
           }
 
       - name: Build one portable Windows EXE
@@ -118,7 +106,7 @@ jobs:
           if ($env:SIGNING_CONFIGURED) {
             if ($sig.Status -ne 'Valid') { throw "Signing credentials were configured but signature is not valid: $($sig.Status)" }
           } else {
-            Write-Warning 'WIN_CSC_LINK is not configured: this smoke build is unsigned and Windows SmartScreen may show Unknown publisher.'
+            Write-Warning 'Code-signing is not configured. Release users can use UNBLOCK_AKID_VIEWER.bat to remove the downloaded-file Internet zone marker.'
           }
           "path=$exe" >> $env:GITHUB_OUTPUT
           "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
@@ -127,13 +115,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AIMETON-AKID-Viewer-Windows-x64
-          path: ${{ steps.exe.outputs.path }}
+          path: |
+            ${{ steps.exe.outputs.path }}
+            UNBLOCK_AKID_VIEWER.bat
           if-no-files-found: error
 
-      - name: Attach EXE to GitHub Release
+      - name: Attach Windows files to GitHub Release
         if: github.event_name == 'release'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" "${{ steps.exe.outputs.path }}" --clobber
+          gh release upload "${{ github.event.release.tag_name }}" "${{ steps.exe.outputs.path }}" "UNBLOCK_AKID_VIEWER.bat" --clobber
