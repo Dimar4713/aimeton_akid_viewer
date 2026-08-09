@@ -1,0 +1,93 @@
+name: Build Windows portable EXE
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package.json
+
+      - name: Set package version from release tag
+        if: github.event_name == 'release'
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.release.tag_name }}" -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Release tag must look like v1.2.3 or 1.2.3. Got: $version"
+          }
+          npm version $version --no-git-tag-version
+
+      - name: Install packaging dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate source JavaScript
+        shell: pwsh
+        run: |
+          node --check electron-main.js
+          node --check app.js
+
+      - name: Assert fully offline runtime inputs
+        shell: pwsh
+        run: |
+          if (Select-String -Path index.html -Pattern '<(script|link)[^>]+(src|href)="https?://' -Quiet) {
+            throw 'index.html contains an external runtime dependency.'
+          }
+          $required = @(
+            'index.html',
+            'app.css',
+            'app.js',
+            'lib/tailwind.js',
+            'lib/xlsx.full.min.js',
+            'lib/css/all.min.css',
+            'lib/webfonts/fa-solid-900.woff2'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing offline runtime file: $file" }
+          }
+
+      - name: Build one portable Windows EXE
+        run: npm run build:win
+
+      - name: Verify single-file deliverable
+        id: exe
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_*_Windows_x64.exe' -File)
+          if ($files.Count -ne 1) {
+            throw "Expected exactly one portable EXE, found $($files.Count)."
+          }
+          $exe = $files[0].FullName
+          Write-Host "Built: $exe"
+          "path=$exe" >> $env:GITHUB_OUTPUT
+          "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMETON-AKID-Viewer-Windows-x64
+          path: ${{ steps.exe.outputs.path }}
+          if-no-files-found: error
+
+      - name: Attach EXE to GitHub Release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" "${{ steps.exe.outputs.path }}" --clobber
