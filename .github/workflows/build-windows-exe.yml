@@ -17,6 +17,7 @@ on:
       - 'app-data.js'
       - 'app-ui.js'
       - 'app-init.js'
+      - 'docs/USER_GUIDE_RU.md'
       - 'UNBLOCK_AKID_VIEWER.bat'
 
 permissions:
@@ -73,6 +74,7 @@ jobs:
             'app.css',
             'app.js',
             'electron-preload.js',
+            'docs/USER_GUIDE_RU.md',
             'UNBLOCK_AKID_VIEWER.bat',
             'lib/tailwind.js',
             'lib/xlsx.full.min.js',
@@ -82,6 +84,10 @@ jobs:
           foreach ($file in $required) {
             if (-not (Test-Path $file)) { throw "Missing offline runtime/release file: $file" }
           }
+          $html = Get-Content index.html -Raw
+          if ($html -notmatch 'id="helpModal"') { throw 'Embedded help modal is missing.' }
+          if ($html -notmatch 'docs/USER_GUIDE_RU.md') { throw 'Embedded help does not point to the approved user guide.' }
+          if ($html -notmatch 'class="help-btn"') { throw 'Help [?] button is missing.' }
 
       - name: Build one portable Windows EXE
         run: npm run build:win
