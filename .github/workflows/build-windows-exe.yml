@@ -10,6 +10,11 @@ on:
       - '.github/workflows/build-windows-exe.yml'
       - 'package.json'
       - 'electron-main.js'
+      - 'electron-preload.js'
+      - 'app-core.js'
+      - 'app-data.js'
+      - 'app-ui.js'
+      - 'app-init.js'
 
 permissions:
   contents: write
@@ -42,10 +47,16 @@ jobs:
       - name: Install packaging dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Build renderer bundle from sources
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs'); const files=['app-core.js','app-data.js','app-ui.js','app-init.js']; fs.writeFileSync('app.js', files.map(f=>fs.readFileSync(f,'utf8')).join('\n'), 'utf8');"
+
       - name: Validate source JavaScript
         shell: pwsh
         run: |
           node --check electron-main.js
+          node --check electron-preload.js
           node --check app.js
 
       - name: Assert fully offline runtime inputs
@@ -58,6 +69,7 @@ jobs:
             'index.html',
             'app.css',
             'app.js',
+            'electron-preload.js',
             'lib/tailwind.js',
             'lib/xlsx.full.min.js',
             'lib/css/all.min.css',
