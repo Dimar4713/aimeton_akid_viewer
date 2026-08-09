@@ -1,0 +1,36 @@
+name: Publish AIMETON AKID Viewer v1.2.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v1.2.0.yml'
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: v1.2.0
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Create release if absent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; nothing to do."
+            exit 0
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            --target "${GITHUB_SHA}" \
+            --title "AIMETON AKID Viewer v1.2.0" \
+            --notes $'Первый portable Windows-релиз AIMETON AKID Viewer.\n\nЧто входит:\n- автономный single-file Windows x64 EXE без установки;\n- полностью офлайн runtime;\n- фирменное оформление AIMETON;\n- автоматическая загрузка employees.csv рядом с EXE;\n- запоминание последних выбранных XLSX/CSV;\n- автоматическая попытка восстановить последние рабочие файлы при следующем запуске;\n- безопасный fallback, если сохранённый файл был перемещён или удалён.\n\nРабочие XLSX/CSV с персональными или внутренними данными в релиз не включаются.'
