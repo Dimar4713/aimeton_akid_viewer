@@ -36,6 +36,20 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package.json
 
+      - name: Require Authenticode credentials for production release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          SIGNING_CERT: ${{ secrets.WIN_CSC_LINK }}
+          SIGNING_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if (-not $env:SIGNING_CERT) {
+            throw 'Production release blocked: WIN_CSC_LINK is not configured.'
+          }
+          if (-not $env:SIGNING_PASSWORD) {
+            throw 'Production release blocked: WIN_CSC_KEY_PASSWORD is not configured.'
+          }
+
       - name: Set package version from release tag
         if: github.event_name == 'release'
         shell: pwsh
@@ -104,7 +118,7 @@ jobs:
           if ($env:SIGNING_CONFIGURED) {
             if ($sig.Status -ne 'Valid') { throw "Signing credentials were configured but signature is not valid: $($sig.Status)" }
           } else {
-            Write-Warning 'WIN_CSC_LINK is not configured: this build is unsigned and Windows SmartScreen may show Unknown publisher.'
+            Write-Warning 'WIN_CSC_LINK is not configured: this smoke build is unsigned and Windows SmartScreen may show Unknown publisher.'
           }
           "path=$exe" >> $env:GITHUB_OUTPUT
           "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
