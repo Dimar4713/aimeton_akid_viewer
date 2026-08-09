@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('aimetonDesktop', {
   getStartupFiles: () => ipcRenderer.invoke('akid:get-startup-files'),
+  getUserGuide: () => ipcRenderer.invoke('akid:get-user-guide'),
   rememberFile: (kind, file) => {
     try {
       const filePath = webUtils.getPathForFile(file);
