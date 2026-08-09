@@ -14,23 +14,75 @@ env:
 
 jobs:
   publish-release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
 
-      - name: Create release if absent
-        shell: bash
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package.json
+
+      - name: Ensure release exists
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Release $RELEASE_TAG already exists; nothing to do."
-            exit 0
-          fi
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:RELEASE_TAG `
+              --target "${{ github.sha }}" `
+              --title "AIMETON AKID Viewer v1.2.0" `
+              --notes "AIMETON AKID Viewer v1.2.0 — автономный portable Windows x64 EXE; офлайн runtime; автозагрузка employees.csv рядом с EXE; запоминание и восстановление последних XLSX/CSV. Рабочие файлы с персональными или внутренними данными в релиз не включаются."
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to create release.' }
+          }
 
-          gh release create "$RELEASE_TAG" \
-            --target "${GITHUB_SHA}" \
-            --title "AIMETON AKID Viewer v1.2.0" \
-            --notes $'Первый portable Windows-релиз AIMETON AKID Viewer.\n\nЧто входит:\n- автономный single-file Windows x64 EXE без установки;\n- полностью офлайн runtime;\n- фирменное оформление AIMETON;\n- автоматическая загрузка employees.csv рядом с EXE;\n- запоминание последних выбранных XLSX/CSV;\n- автоматическая попытка восстановить последние рабочие файлы при следующем запуске;\n- безопасный fallback, если сохранённый файл был перемещён или удалён.\n\nРабочие XLSX/CSV с персональными или внутренними данными в релиз не включаются.'
+      - name: Set package version
+        shell: pwsh
+        run: npm version 1.2.0 --no-git-tag-version
+
+      - name: Install packaging dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build renderer bundle from sources
+        shell: pwsh
+        run: |
+          $parts = @('app-core.js','app-data.js','app-ui.js','app-init.js')
+          $content = ($parts | ForEach-Object { Get-Content $_ -Raw }) -join "`n"
+          Set-Content -Path app.js -Value $content -Encoding utf8
+
+      - name: Validate source and offline runtime
+        shell: pwsh
+        run: |
+          node --check electron-main.js
+          node --check electron-preload.js
+          node --check app.js
+          if (Select-String -Path index.html -Pattern '<(script|link)[^>]+(src|href)="https?://' -Quiet) {
+            throw 'index.html contains an external runtime dependency.'
+          }
+          $required = @(
+            'index.html','app.css','app.js','electron-main.js','electron-preload.js',
+            'lib/tailwind.js','lib/xlsx.full.min.js','lib/css/all.min.css','lib/webfonts/fa-solid-900.woff2'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing runtime file: $file" }
+          }
+
+      - name: Build portable Windows EXE
+        run: npm run build:win
+
+      - name: Verify and upload EXE to release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_*_Windows_x64.exe' -File)
+          if ($files.Count -ne 1) {
+            throw "Expected exactly one portable EXE, found $($files.Count)."
+          }
+          gh release upload $env:RELEASE_TAG $files[0].FullName --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload EXE to release.' }
+          Write-Host "Published $($files[0].Name)"
