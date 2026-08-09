@@ -1,7 +1,63 @@
 'use strict';
 
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+function settingsPath() {
+  return path.join(app.getPath('userData'), 'recent-files.json');
+}
+
+function readSettings() {
+  try {
+    return JSON.parse(fs.readFileSync(settingsPath(), 'utf8')) || {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeSettings(next) {
+  try {
+    fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
+    fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2), 'utf8');
+  } catch (_) {}
+}
+
+function portableDir() {
+  return process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath);
+}
+
+function readStartupFile(filePath) {
+  try {
+    if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null;
+    return {
+      name: path.basename(filePath),
+      filePath,
+      base64: fs.readFileSync(filePath).toString('base64')
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+ipcMain.handle('akid:get-startup-files', () => {
+  const saved = readSettings();
+  const adjacentEmployees = path.join(portableDir(), 'employees.csv');
+
+  const employees = readStartupFile(adjacentEmployees) || readStartupFile(saved.employees);
+  const tasks = readStartupFile(saved.tasks);
+
+  return { employees, tasks };
+});
+
+ipcMain.on('akid:remember-file', (_event, payload) => {
+  if (!payload || !['tasks', 'employees'].includes(payload.kind)) return;
+  const filePath = payload.filePath;
+  if (!filePath || !fs.existsSync(filePath)) return;
+  const saved = readSettings();
+  saved[payload.kind] = filePath;
+  writeSettings(saved);
+});
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -14,6 +70,7 @@ function createWindow() {
     autoHideMenuBar: true,
     title: 'AIMETON AKID Viewer',
     webPreferences: {
+      preload: path.join(__dirname, 'electron-preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
