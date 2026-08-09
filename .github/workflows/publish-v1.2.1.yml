@@ -1,0 +1,128 @@
+name: Publish AIMETON AKID Viewer v1.2.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v1.2.1.yml'
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: v1.2.1
+  RELEASE_VERSION: 1.2.1
+
+jobs:
+  publish-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package.json
+
+      - name: Set release version
+        shell: pwsh
+        run: npm version $env:RELEASE_VERSION --no-git-tag-version
+
+      - name: Install packaging dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build renderer bundle from sources
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs'); const files=['app-core.js','app-data.js','app-ui.js','app-init.js']; fs.writeFileSync('app.js', files.map(f=>fs.readFileSync(f,'utf8')).join('\n'), 'utf8');"
+
+      - name: Validate source and offline runtime
+        shell: pwsh
+        run: |
+          node --check electron-main.js
+          node --check electron-preload.js
+          node --check app.js
+          if (Select-String -Path index.html -Pattern '<(script|link)[^>]+(src|href)="https?://' -Quiet) {
+            throw 'index.html contains an external runtime dependency.'
+          }
+          $required = @(
+            'index.html',
+            'app.css',
+            'app.js',
+            'electron-preload.js',
+            'UNBLOCK_AKID_VIEWER.bat',
+            'lib/tailwind.js',
+            'lib/xlsx.full.min.js',
+            'lib/css/all.min.css',
+            'lib/webfonts/fa-solid-900.woff2'
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing release input: $file" }
+          }
+          $html = Get-Content index.html -Raw
+          if ($html -match 'aimeton-brand large') { throw 'Prominent AIMETON branding is still present on the start screen.' }
+          if ($html -notmatch 'Инженерное решение:') { throw 'Subtle AIMETON provenance footer is missing.' }
+
+      - name: Build portable Windows EXE
+        run: npm run build:win
+
+      - name: Verify single portable EXE
+        id: exe
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_1.2.1_Windows_x64.exe' -File)
+          if ($files.Count -ne 1) { throw "Expected exactly one v1.2.1 EXE, found $($files.Count)." }
+          $exe = $files[0].FullName
+          $sig = Get-AuthenticodeSignature -FilePath $exe
+          Write-Host "Authenticode status: $($sig.Status)"
+          Write-Host 'Unsigned pilot build: use UNBLOCK_AKID_VIEWER.bat when Windows applies Internet-zone blocking.'
+          "path=$exe" >> $env:GITHUB_OUTPUT
+          "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Create release if absent
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:RELEASE_TAG `
+              --target $env:GITHUB_SHA `
+              --title 'AIMETON AKID Viewer v1.2.1' `
+              --notes @'
+Корпоративная pilot-версия с нейтральным интерфейсом и ненавязчивой подписью автора решения.
+
+Изменения:
+- AIMETON полностью убран со стартового экрана и основной шапки;
+- в рабочем интерфейсе оставлена только спокойная строка «Инженерное решение: AIMETON · aimeton.ru»;
+- сохранена автоматическая загрузка employees.csv рядом с EXE;
+- сохранено восстановление последних XLSX/CSV при повторном запуске;
+- добавлен UNBLOCK_AKID_VIEWER.bat для снятия Windows Internet-zone blocking без отключения SmartScreen целиком;
+- приложение остаётся полностью автономным и работает без Интернета.
+
+Пилотный EXE пока не имеет публичной Authenticode-подписи; BAT снимает только метку файла, загруженного из Интернета, и не подменяет доверенную подпись издателя.
+'@
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to create GitHub Release.' }
+          }
+
+      - name: Upload EXE and unblock helper to release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload $env:RELEASE_TAG "${{ steps.exe.outputs.path }}" 'UNBLOCK_AKID_VIEWER.bat' --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload release assets.' }
+
+      - name: Verify release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $json = gh release view $env:RELEASE_TAG --json assets | ConvertFrom-Json
+          $names = @($json.assets | ForEach-Object { $_.name })
+          if ($names -notcontains 'AIMETON_AKID_Viewer_1.2.1_Windows_x64.exe') { throw 'Release EXE asset missing.' }
+          if ($names -notcontains 'UNBLOCK_AKID_VIEWER.bat') { throw 'Release BAT asset missing.' }
+          Write-Host ('Release assets: ' + ($names -join ', '))
