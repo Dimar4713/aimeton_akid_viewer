@@ -18,3 +18,36 @@ function syncScroll(){
 var _tblObs = new MutationObserver(function(){ syncScroll(); });
 if($('tBody')) _tblObs.observe($('tBody'), {childList: true});
 setTimeout(syncScroll, 100);
+
+(function setupDesktopRecentFiles(){
+  if(!window.aimetonDesktop)return;
+
+  var originalTasks=handleTasksFile;
+  var originalExec=handleExecFile;
+
+  handleTasksFile=function(file){
+    if(file)window.aimetonDesktop.rememberFile('tasks',file);
+    return originalTasks(file);
+  };
+  handleExecFile=function(file){
+    if(file)window.aimetonDesktop.rememberFile('employees',file);
+    return originalExec(file);
+  };
+
+  function fileFromStartup(info,type){
+    if(!info||!info.base64)return null;
+    try{
+      var raw=atob(info.base64),bytes=new Uint8Array(raw.length);
+      for(var i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+      return new File([bytes],info.name,{type:type||'application/octet-stream'});
+    }catch(_){return null;}
+  }
+
+  window.aimetonDesktop.getStartupFiles().then(function(files){
+    if(!files)return;
+    var emp=fileFromStartup(files.employees,'text/csv');
+    var tasks=fileFromStartup(files.tasks,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if(emp)originalExec(emp);
+    if(tasks)originalTasks(tasks);
+  }).catch(function(){});
+})();
