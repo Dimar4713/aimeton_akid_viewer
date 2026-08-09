@@ -1,0 +1,83 @@
+name: Vendor offline dependencies
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vendor-offline.yml'
+      - 'index.html'
+      - 'app-core.js'
+      - 'app-data.js'
+      - 'app-ui.js'
+      - 'app-init.js'
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vendor browser dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p lib/css lib/webfonts
+
+          curl --fail --location --retry 3 \
+            https://cdn.tailwindcss.com/3.4.17 \
+            --output lib/tailwind.js
+
+          curl --fail --location --retry 3 \
+            https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js \
+            --output lib/xlsx.full.min.js
+
+          curl --fail --location --retry 3 \
+            https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css \
+            --output lib/css/all.min.css
+
+          for font in fa-solid-900.woff2 fa-regular-400.woff2 fa-brands-400.woff2; do
+            curl --fail --location --retry 3 \
+              "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/webfonts/${font}" \
+              --output "lib/webfonts/${font}"
+          done
+
+          cat app-core.js app-data.js app-ui.js app-init.js > app.js
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('https://cdn.tailwindcss.com', 'lib/tailwind.js')
+          s = s.replace('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'lib/xlsx.full.min.js')
+          s = s.replace('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css', 'lib/css/all.min.css')
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Assert no network runtime dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -E '<(script|link)[^>]+(src|href)="https?://' index.html
+          test -s lib/tailwind.js
+          test -s lib/xlsx.full.min.js
+          test -s lib/css/all.min.css
+          test -s lib/webfonts/fa-solid-900.woff2
+          test -s app.js
+
+      - name: Commit vendored offline bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- index.html app.js lib; then
+            echo 'Offline bundle already up to date.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html app.js lib
+          git commit -m 'Vendor dependencies for fully offline runtime'
+          git push
