@@ -3,12 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Мониторинг работ АКИД/АКИП · AIMETON</title>
+<title>Мониторинг работ АКИД/АКИП</title>
 <script src="lib/tailwind.js"></script>
 <script src="lib/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="lib/css/all.min.css">
-
-
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -18,7 +16,6 @@
 <div class="w-14 h-14 rounded-xl bg-[var(--acg)] border border-[var(--acd)] flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-satellite-dish text-[var(--ac)] text-xl"></i></div>
 <h1 class="text-2xl font-bold mb-1">Мониторинг работ АКИД/АКИП</h1>
 <p class="text-sm text-[var(--mt)]">Загрузите файлы для начала работы</p>
-<button type="button" class="aimeton-brand large" onclick="openModal('aimetonAboutModal')" aria-label="Об AIMETON"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span>AIMETON</span></button>
 </div>
 <div class="flex flex-col sm:flex-row gap-4">
 <label class="uz"><i class="fa-solid fa-file-excel text-[var(--ac)] text-2xl mb-3"></i><div class="font-semibold text-sm mb-1">Файл с работами</div><div class="text-xs text-[var(--mt)]">XLSX — плановая таблица</div><input type="file" accept=".xlsx,.xls" class="hidden" onchange="handleTasksFile(this.files[0])"></label>
@@ -28,10 +25,8 @@
 
 <div id="mainApp" class="relative z-10 hidden">
 <header class="border-b border-[var(--bd)] bg-[var(--sf)]" style="z-index: 50">
-
 <div class="max-w-[1700px] mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
 <div class="flex items-center gap-3">
-<button type="button" class="aimeton-brand" onclick="openModal('aimetonAboutModal')" aria-label="Об AIMETON"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span class="aimeton-word">AIMETON</span></button><span class="aimeton-divider" aria-hidden="true"></span>
 <div class="w-8 h-8 rounded-lg bg-[var(--acg)] border border-[var(--acd)] flex items-center justify-center"><i class="fa-solid fa-satellite-dish text-[var(--ac)] text-xs"></i></div>
 <div><h1 class="text-base font-bold leading-tight">Мониторинг работ</h1><p class="text-[10px] text-[var(--mt)] mono" id="fileInfo">Файл не загружен</p></div>
 </div>
@@ -73,18 +68,17 @@
 <div id="savedTags" class="flex flex-wrap gap-1"></div>
 </section>
 </main>
-<footer class="aimeton-footer">© 2026 AIMETON · Инженерная AI-студия · <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">www.aimeton.ru</a></footer>
+<footer class="aimeton-footer"><span>Инженерное решение:</span> <a href="#" onclick="openModal('aimetonAboutModal');return false;" aria-label="Об авторе решения">AIMETON</a> · <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">aimeton.ru</a></footer>
 </div>
 
-<div class="mo" id="aimetonAboutModal"><div class="ml" style="max-width:520px"><div class="mh"><h2 class="font-bold text-sm">Об AIMETON</h2><button class="bt bt-g text-xs" onclick="closeModal('aimetonAboutModal')" aria-label="Закрыть"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div class="aimeton-about"><div class="aimeton-about-logo"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span>AIMETON</span></div><p>Это приложение создано Инженерной AI-студией AIMETON.</p><p><i class="fa-solid fa-envelope"></i>&nbsp; <a href="mailto:office@aimeton.ru">office@aimeton.ru</a><br><i class="fa-solid fa-globe"></i>&nbsp; <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">www.aimeton.ru</a></p></div></div></div></div>
+<div class="mo" id="aimetonAboutModal"><div class="ml" style="max-width:520px"><div class="mh"><h2 class="font-bold text-sm">Об авторе решения</h2><button class="bt bt-g text-xs" onclick="closeModal('aimetonAboutModal')" aria-label="Закрыть"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div class="aimeton-about"><div class="aimeton-about-logo"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span>AIMETON</span></div><p>Прикладное инженерное решение разработано Инженерной AI-студией AIMETON.</p><p><i class="fa-solid fa-envelope"></i>&nbsp; <a href="mailto:office@aimeton.ru">office@aimeton.ru</a><br><i class="fa-solid fa-globe"></i>&nbsp; <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">www.aimeton.ru</a></p></div></div></div></div>
 
 <div class="mo" id="asgnModal"><div class="ml" style="max-width:520px"><div class="mh"><h2 class="font-bold text-sm">Назначить исполнителя</h2><button class="bt bt-g text-xs" onclick="closeModal('asgnModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div id="asgnInfo" class="text-xs text-[var(--mt)] mb-3 p-3 bg-[var(--sf)] rounded-lg border border-[var(--bd)]"></div><div class="flex gap-2 mb-3"><input type="text" id="asgnQ" placeholder="Поиск..." class="flex-1" oninput="renderExecList()"><select id="asgnSek" class="w-28" onchange="renderExecList()"><option value="">Все</option></select></div><div id="asgnList" class="max-h-[280px] overflow-y-auto"></div></div></div></div>
 <div class="mo" id="issueModal"><div class="ml" style="max-width:700px"><div class="mh"><h2 class="font-bold text-sm" id="issueTitle">Выдача</h2><button class="bt bt-g text-xs" onclick="closeModal('issueModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div id="issueExecInfo" class="text-xs mb-3 p-3 bg-[var(--sf)] rounded-lg border border-[var(--bd)]"></div><div class="flex gap-2 mb-3 flex-wrap"><button class="bt bt-a text-xs" onclick="exportIssueXLSX()"><i class="fa-solid fa-file-excel"></i> XLSX</button><button class="bt bt-o text-xs" onclick="exportIssueMD()"><i class="fa-solid fa-file-lines"></i> MD</button><button class="bt bt-o text-xs" onclick="exportIssueObs()"><i class="fa-solid fa-check-double"></i> Obsidian</button><button class="bt bt-o text-xs" onclick="copyTxt('issueArea')"><i class="fa-solid fa-copy"></i> Копировать</button></div><textarea id="issueArea" readonly></textarea></div></div></div>
-<div class="mo" id="expModal"><div class="ml"><div class="mh"><h2 class="font-bold text-sm">Экспорт выборки</h2><button class="bt bt-g text-xs" onclick="closeModal('expModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div class="flex gap-2 mb-3 flex-wrap"><button class="bt bt-a text-xs" onclick="doExpXLSX()"><i class="fa-solid fa-file-excel"></i> XLSX</button><button class="bt bt-o text-xs" onclick="doExpMD()"><i class="fa-solid fa-file-lines"></i> MD</button><button class="bt bt-o text-xs" onclick="doExpObs()"><i class="fa-solid fa-check-double"></i> Obsidian</button><button class="bt bt-o text-xs" onclick="copyTxt('expArea')"><i class="fa-solid fa-copy"></i> Копировать</button></div><div class="flex gap-3 mb-3 flex-wrap"><label class="text-xs text-[var(--mt)] flex items-center gap-1 font-semibold"><input type="checkbox" id="expGrp" checked class="accent-[var(--ac)]" onchange="genExpTxt()"> Группировать</label><label class="text-xs text-[var(--mt)] flex items-center gap-1 font-semibold"><input type="checkbox" id="expAsgn" class="accent-[var(--ac)]" onchange="genExpTxt()"> Только назначенные</label></div><textarea id="expArea" readonly></textarea></div></div></div>
+<div class="mo" id="expModal"><div class="ml"><div class="mh"><h2 class="font-bold text-sm">Экспорт выборки</h2><button class="bt bt-g text-xs" onclick="closeModal('expModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div class="flex gap-2 mb-3 flex-wrap"><button class="bt bt-a text-xs" onclick="doExpXLSX()"><i class="fa-solid fa-file-excel"></i> XLSX</button><button class="bt bt-o text-xs" onclick="doExpMD()"><i class="fa-solid fa-file-lines"></i> MD</button><button class="bt bt-o text-xs" onclick="doExpObs()"><i class="fa-solid fa-check-double"></i> Obsidian</button><button class="bt bt-o text-xs" onclick="copyTxt('expArea')"><i class="fa-solid fa-copy"></i> Копировать</button></div><div class="flex gap-3 mb-3 flex-wrap"><label class="text-xs text-[var(--mt)] flex items-center gap-1 font-semibold"><input type="checkbox" id="expGrp" checked class="accent-[var(--ac)]" onchange="genExpTxt()"> Группировать</label><label class="text-xs text-[var(--mt)] flex items-center gap-1 font-semibold"><input type="checkbox" id="expAsgn" class="accent-[var(--ac)]" onchange="genExpTxt()"> Только назначенные</label></div><textarea id="expArea"></textarea></div></div></div>
 <div class="mo" id="saveModal"><div class="ml" style="max-width:400px"><div class="mh"><h2 class="font-bold text-sm">Сохранить выборку</h2><button class="bt bt-g text-xs" onclick="closeModal('saveModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><p class="text-xs text-[var(--mt)] mb-3">Фильтры, поиск, группировка и назначения.</p><input type="text" id="saveName" placeholder="Название..." class="w-full mb-3"><div class="flex gap-2"><button class="bt bt-a text-xs" onclick="doSave()">Сохранить</button><button class="bt bt-o text-xs" onclick="closeModal('saveModal')">Отмена</button></div></div></div></div>
 
 <div class="toast" id="toast"></div>
-
 <script src="app.js"></script>
 </body>
 </html>
