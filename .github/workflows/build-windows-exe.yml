@@ -11,6 +11,8 @@ on:
       - 'package.json'
       - 'electron-main.js'
       - 'electron-preload.js'
+      - 'index.html'
+      - 'app.css'
       - 'app-core.js'
       - 'app-data.js'
       - 'app-ui.js'
@@ -81,10 +83,15 @@ jobs:
 
       - name: Build one portable Windows EXE
         run: npm run build:win
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
-      - name: Verify single-file deliverable
+      - name: Verify single-file deliverable and signature state
         id: exe
         shell: pwsh
+        env:
+          SIGNING_CONFIGURED: ${{ secrets.WIN_CSC_LINK }}
         run: |
           $files = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_*_Windows_x64.exe' -File)
           if ($files.Count -ne 1) {
@@ -92,6 +99,13 @@ jobs:
           }
           $exe = $files[0].FullName
           Write-Host "Built: $exe"
+          $sig = Get-AuthenticodeSignature -FilePath $exe
+          Write-Host "Authenticode status: $($sig.Status)"
+          if ($env:SIGNING_CONFIGURED) {
+            if ($sig.Status -ne 'Valid') { throw "Signing credentials were configured but signature is not valid: $($sig.Status)" }
+          } else {
+            Write-Warning 'WIN_CSC_LINK is not configured: this build is unsigned and Windows SmartScreen may show Unknown publisher.'
+          }
           "path=$exe" >> $env:GITHUB_OUTPUT
           "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
 
