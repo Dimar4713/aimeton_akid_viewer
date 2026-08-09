@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мониторинг работ АКИД/АКИП · AIMETON</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div id="emptyState" class="es relative z-10">
+<div class="mb-6">
+<div class="w-14 h-14 rounded-xl bg-[var(--acg)] border border-[var(--acd)] flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-satellite-dish text-[var(--ac)] text-xl"></i></div>
+<h1 class="text-2xl font-bold mb-1">Мониторинг работ АКИД/АКИП</h1>
+<p class="text-sm text-[var(--mt)]">Загрузите файлы для начала работы</p>
+<button type="button" class="aimeton-brand large" onclick="openModal('aimetonAboutModal')" aria-label="Об AIMETON"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span>AIMETON</span></button>
+</div>
+<div class="flex flex-col sm:flex-row gap-4">
+<label class="uz"><i class="fa-solid fa-file-excel text-[var(--ac)] text-2xl mb-3"></i><div class="font-semibold text-sm mb-1">Файл с работами</div><div class="text-xs text-[var(--mt)]">XLSX — плановая таблица</div><input type="file" accept=".xlsx,.xls" class="hidden" onchange="handleTasksFile(this.files[0])"></label>
+<label class="uz"><i class="fa-solid fa-users text-[var(--in)] text-2xl mb-3"></i><div class="font-semibold text-sm mb-1">Файл исполнителей</div><div class="text-xs text-[var(--mt)]">CSV (;) — ФИО;Сектор;Должность...</div><input type="file" accept=".csv,.txt" class="hidden" onchange="handleExecFile(this.files[0])"></label>
+</div>
+</div>
+
+<div id="mainApp" class="relative z-10 hidden">
+<header class="border-b border-[var(--bd)] bg-[var(--sf)]" style="z-index: 50">
+
+<div class="max-w-[1700px] mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+<div class="flex items-center gap-3">
+<button type="button" class="aimeton-brand" onclick="openModal('aimetonAboutModal')" aria-label="Об AIMETON"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span class="aimeton-word">AIMETON</span></button><span class="aimeton-divider" aria-hidden="true"></span>
+<div class="w-8 h-8 rounded-lg bg-[var(--acg)] border border-[var(--acd)] flex items-center justify-center"><i class="fa-solid fa-satellite-dish text-[var(--ac)] text-xs"></i></div>
+<div><h1 class="text-base font-bold leading-tight">Мониторинг работ</h1><p class="text-[10px] text-[var(--mt)] mono" id="fileInfo">Файл не загружен</p></div>
+</div>
+<div class="flex items-center gap-2 flex-wrap">
+<button id="themeBtn" class="bt bt-o text-xs" onclick="toggleTheme()"><i class="fa-solid fa-sun"></i></button>
+<label class="bt bt-o text-xs"><i class="fa-solid fa-file-excel"></i> Работы<input type="file" accept=".xlsx,.xls" class="hidden" onchange="handleTasksFile(this.files[0])"></label>
+<label class="bt bt-o text-xs"><i class="fa-solid fa-users"></i> Исполнители <span id="execCount" class="opacity-70"></span><input type="file" accept=".csv,.txt" class="hidden" onchange="handleExecFile(this.files[0])"></label>
+<div class="w-px h-5 bg-[var(--bd)]"></div>
+<div class="relative"><button class="bt bt-o text-xs fb" onclick="openIssueList()"><i class="fa-solid fa-print"></i> Выдачи</button><div id="issueDD" class="fd" style="min-width:260px;right:0;left:auto"></div></div>
+<button class="bt bt-o text-xs" onclick="openSaveModal()"><i class="fa-solid fa-bookmark"></i> Сохранить</button>
+<label class="bt bt-o text-xs fb"><i class="fa-solid fa-folder-open"></i> Загрузить конфиг<input type="file" accept=".json" class="hidden" onchange="importConfig(this.files[0])"></label>
+<button class="bt bt-o text-xs fb" onclick="exportConfig()"><i class="fa-solid fa-floppy-disk"></i> Сохранить конфиг в файл</button>
+<button class="bt bt-a text-xs" onclick="openExportModal()"><i class="fa-solid fa-file-export"></i> Экспорт</button>
+<button class="bt bt-o text-xs" onclick="resetAll()"><i class="fa-solid fa-rotate-left"></i></button>
+</div>
+</div>
+</header>
+<main class="max-w-[1700px] mx-auto px-4 py-4">
+<section id="statsBar" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4"></section>
+<section class="mb-3">
+<button class="text-xs font-bold text-[var(--mt)] mb-1.5 flex items-center gap-1 cursor-pointer hover:text-[var(--fg)] transition" onclick="toggleFilters()"><i class="fa-solid fa-sliders"></i> ФИЛЬТРЫ И ПОИСК <i id="fArr" class="fa-solid fa-chevron-down text-[8px] ml-0.5 transition-transform"></i></button>
+<div id="fPanel" class="flex flex-wrap items-center gap-2"></div>
+</section>
+<section class="flex items-center justify-between flex-wrap gap-2 mb-2">
+<div class="flex items-center gap-2 flex-wrap">
+<label class="text-xs font-bold text-[var(--mt)]">Группировка:</label>
+<select id="grpBy" class="text-xs" onchange="S.groupBy=this.value;render()"><option value="">Нет</option></select>
+<span id="rowCnt" class="text-xs text-[var(--mt)] mono"></span>
+</div>
+<div class="flex items-center gap-2">
+<div class="relative"><button class="bt bt-o text-xs fb" onclick="toggleCP()"><i class="fa-solid fa-columns"></i> Столбцы</button><div id="colPanel" class="cp"></div></div>
+<input type="search" id="sInput" placeholder="Поиск..." class="w-44" oninput="S.search=this.value;render()">
+</div>
+</section>
+<div id="scrollSyncTop" class="scroll-top"></div>
+<section class="tw" id="tWrap"><table id="tbl"><colgroup id="tCols"></colgroup><thead id="tHead"></thead><tbody id="tBody"></tbody></table></section>
+<section id="savedBar" class="mt-3 flex items-center gap-2 flex-wrap hidden">
+<span class="text-xs font-bold text-[var(--mt)]"><i class="fa-solid fa-bookmark"></i> Сохранённые:</span>
+<div id="savedTags" class="flex flex-wrap gap-1"></div>
+</section>
+</main>
+<footer class="aimeton-footer">© 2026 AIMETON · Инженерная AI-студия · <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">www.aimeton.ru</a></footer>
+</div>
+
+<div class="mo" id="aimetonAboutModal"><div class="ml" style="max-width:520px"><div class="mh"><h2 class="font-bold text-sm">Об AIMETON</h2><button class="bt bt-g text-xs" onclick="closeModal('aimetonAboutModal')" aria-label="Закрыть"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div class="aimeton-about"><div class="aimeton-about-logo"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span>AIMETON</span></div><p>Это приложение создано Инженерной AI-студией AIMETON.</p><p><i class="fa-solid fa-envelope"></i>&nbsp; <a href="mailto:office@aimeton.ru">office@aimeton.ru</a><br><i class="fa-solid fa-globe"></i>&nbsp; <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">www.aimeton.ru</a></p></div></div></div></div>
+
+<div class="mo" id="asgnModal"><div class="ml" style="max-width:520px"><div class="mh"><h2 class="font-bold text-sm">Назначить исполнителя</h2><button class="bt bt-g text-xs" onclick="closeModal('asgnModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div id="asgnInfo" class="text-xs text-[var(--mt)] mb-3 p-3 bg-[var(--sf)] rounded-lg border border-[var(--bd)]"></div><div class="flex gap-2 mb-3"><input type="text" id="asgnQ" placeholder="Поиск..." class="flex-1" oninput="renderExecList()"><select id="asgnSek" class="w-28" onchange="renderExecList()"><option value="">Все</option></select></div><div id="asgnList" class="max-h-[280px] overflow-y-auto"></div></div></div></div>
+<div class="mo" id="issueModal"><div class="ml" style="max-width:700px"><div class="mh"><h2 class="font-bold text-sm" id="issueTitle">Выдача</h2><button class="bt bt-g text-xs" onclick="closeModal('issueModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div id="issueExecInfo" class="text-xs mb-3 p-3 bg-[var(--sf)] rounded-lg border border-[var(--bd)]"></div><div class="flex gap-2 mb-3 flex-wrap"><button class="bt bt-a text-xs" onclick="exportIssueXLSX()"><i class="fa-solid fa-file-excel"></i> XLSX</button><button class="bt bt-o text-xs" onclick="exportIssueMD()"><i class="fa-solid fa-file-lines"></i> MD</button><button class="bt bt-o text-xs" onclick="exportIssueObs()"><i class="fa-solid fa-check-double"></i> Obsidian</button><button class="bt bt-o text-xs" onclick="copyTxt('issueArea')"><i class="fa-solid fa-copy"></i> Копировать</button></div><textarea id="issueArea" readonly></textarea></div></div></div>
+<div class="mo" id="expModal"><div class="ml"><div class="mh"><h2 class="font-bold text-sm">Экспорт выборки</h2><button class="bt bt-g text-xs" onclick="closeModal('expModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div class="flex gap-2 mb-3 flex-wrap"><button class="bt bt-a text-xs" onclick="doExpXLSX()"><i class="fa-solid fa-file-excel"></i> XLSX</button><button class="bt bt-o text-xs" onclick="doExpMD()"><i class="fa-solid fa-file-lines"></i> MD</button><button class="bt bt-o text-xs" onclick="doExpObs()"><i class="fa-solid fa-check-double"></i> Obsidian</button><button class="bt bt-o text-xs" onclick="copyTxt('expArea')"><i class="fa-solid fa-copy"></i> Копировать</button></div><div class="flex gap-3 mb-3 flex-wrap"><label class="text-xs text-[var(--mt)] flex items-center gap-1 font-semibold"><input type="checkbox" id="expGrp" checked class="accent-[var(--ac)]" onchange="genExpTxt()"> Группировать</label><label class="text-xs text-[var(--mt)] flex items-center gap-1 font-semibold"><input type="checkbox" id="expAsgn" class="accent-[var(--ac)]" onchange="genExpTxt()"> Только назначенные</label></div><textarea id="expArea" readonly></textarea></div></div></div>
+<div class="mo" id="saveModal"><div class="ml" style="max-width:400px"><div class="mh"><h2 class="font-bold text-sm">Сохранить выборку</h2><button class="bt bt-g text-xs" onclick="closeModal('saveModal')"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><p class="text-xs text-[var(--mt)] mb-3">Фильтры, поиск, группировка и назначения.</p><input type="text" id="saveName" placeholder="Название..." class="w-full mb-3"><div class="flex gap-2"><button class="bt bt-a text-xs" onclick="doSave()">Сохранить</button><button class="bt bt-o text-xs" onclick="closeModal('saveModal')">Отмена</button></div></div></div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
