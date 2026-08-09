@@ -57,15 +57,18 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
 
-      - name: Assert no network runtime dependencies
+      - name: Validate offline bundle
         shell: bash
         run: |
           set -euo pipefail
+          node --check app.js
           ! grep -E '<(script|link)[^>]+(src|href)="https?://' index.html
           test -s lib/tailwind.js
           test -s lib/xlsx.full.min.js
           test -s lib/css/all.min.css
           test -s lib/webfonts/fa-solid-900.woff2
+          test -s lib/webfonts/fa-regular-400.woff2
+          test -s lib/webfonts/fa-brands-400.woff2
           test -s app.js
 
       - name: Commit vendored offline bundle
