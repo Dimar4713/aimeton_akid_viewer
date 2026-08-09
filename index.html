@@ -11,6 +11,8 @@
 </head>
 <body>
 
+<button type="button" class="help-btn" onclick="openModal('helpModal')" title="Руководство пользователя" aria-label="Открыть руководство пользователя">?</button>
+
 <div id="emptyState" class="es relative z-10">
 <div class="mb-6">
 <div class="w-14 h-14 rounded-xl bg-[var(--acg)] border border-[var(--acd)] flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-satellite-dish text-[var(--ac)] text-xl"></i></div>
@@ -70,6 +72,8 @@
 </main>
 <footer class="aimeton-footer"><span>Инженерное решение:</span> <a href="#" onclick="openModal('aimetonAboutModal');return false;" aria-label="Об авторе решения">AIMETON</a> · <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">aimeton.ru</a></footer>
 </div>
+
+<div class="mo" id="helpModal"><div class="ml help-modal"><div class="mh help-head"><div><h2 class="font-bold text-sm">Руководство пользователя</h2><div class="text-[10px] text-[var(--mt)] mt-1">Мониторинг работ АКИД/АКИП</div></div><button class="bt bt-g text-xs" onclick="closeModal('helpModal')" aria-label="Закрыть руководство"><i class="fa-solid fa-xmark"></i></button></div><div class="help-body"><iframe class="help-frame" src="docs/USER_GUIDE_RU.md" title="Руководство пользователя"></iframe></div></div></div>
 
 <div class="mo" id="aimetonAboutModal"><div class="ml" style="max-width:520px"><div class="mh"><h2 class="font-bold text-sm">Об авторе решения</h2><button class="bt bt-g text-xs" onclick="closeModal('aimetonAboutModal')" aria-label="Закрыть"><i class="fa-solid fa-xmark"></i></button></div><div class="mb"><div class="aimeton-about"><div class="aimeton-about-logo"><svg class="aimeton-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="36" height="36" rx="10" fill="#5b61e6"/><path d="M9 27L14.5 9H18L23.5 27H20.2L19 23H13L11.8 27H9ZM13.8 20.5H18.2L16 13.5L13.8 20.5Z" fill="white"/><circle cx="26" cy="13" r="3" fill="#a5d8ff"/></svg><span>AIMETON</span></div><p>Прикладное инженерное решение разработано Инженерной AI-студией AIMETON.</p><p><i class="fa-solid fa-envelope"></i>&nbsp; <a href="mailto:office@aimeton.ru">office@aimeton.ru</a><br><i class="fa-solid fa-globe"></i>&nbsp; <a href="https://www.aimeton.ru" target="_blank" rel="noopener noreferrer">www.aimeton.ru</a></p></div></div></div></div>
 
