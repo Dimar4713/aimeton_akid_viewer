@@ -18,6 +18,7 @@ on:
       - 'app-ui.js'
       - 'app-init.js'
       - 'docs/USER_GUIDE_RU.md'
+      - 'scripts/build-user-guide-pdf.js'
       - 'UNBLOCK_AKID_VIEWER.bat'
 
 permissions:
@@ -62,6 +63,7 @@ jobs:
           node --check electron-main.js
           node --check electron-preload.js
           node --check app.js
+          node --check scripts/build-user-guide-pdf.js
 
       - name: Assert fully offline runtime inputs
         shell: pwsh
@@ -75,6 +77,7 @@ jobs:
             'app.js',
             'electron-preload.js',
             'docs/USER_GUIDE_RU.md',
+            'scripts/build-user-guide-pdf.js',
             'UNBLOCK_AKID_VIEWER.bat',
             'lib/tailwind.js',
             'lib/xlsx.full.min.js',
@@ -94,6 +97,16 @@ jobs:
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Generate PDF user guide
+        shell: pwsh
+        run: |
+          npx electron scripts/build-user-guide-pdf.js
+          $pdf = 'AIMETON_AKID_Viewer_User_Guide_RU.pdf'
+          if (-not (Test-Path $pdf)) { throw 'PDF user guide was not generated.' }
+          $size = (Get-Item $pdf).Length
+          if ($size -lt 20000) { throw "PDF user guide is unexpectedly small: $size bytes." }
+          Write-Host "PDF user guide: $pdf ($size bytes)"
 
       - name: Verify single-file deliverable and signature state
         id: exe
@@ -124,6 +137,7 @@ jobs:
           path: |
             ${{ steps.exe.outputs.path }}
             UNBLOCK_AKID_VIEWER.bat
+            AIMETON_AKID_Viewer_User_Guide_RU.pdf
           if-no-files-found: error
 
       - name: Attach Windows files to GitHub Release
@@ -132,4 +146,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" "${{ steps.exe.outputs.path }}" "UNBLOCK_AKID_VIEWER.bat" --clobber
+          gh release upload "${{ github.event.release.tag_name }}" "${{ steps.exe.outputs.path }}" "UNBLOCK_AKID_VIEWER.bat" "AIMETON_AKID_Viewer_User_Guide_RU.pdf" --clobber
