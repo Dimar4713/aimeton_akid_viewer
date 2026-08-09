@@ -42,6 +42,41 @@ function importConfig(file){
   r.readAsText(file,'utf-8');
 }
 
+function mdInline(s){return esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');}
+function renderGuideMarkdown(md){
+  var out=[],inCode=false,list=null;
+  function closeList(){if(list){out.push('</'+list+'>');list=null;}}
+  String(md||'').split(/\r?\n/).forEach(function(line){
+    if(/^```/.test(line)){closeList();if(inCode){out.push('</code></pre>');inCode=false;}else{out.push('<pre><code>');inCode=true;}return;}
+    if(inCode){out.push(esc(line)+'\n');return;}
+    if(!line.trim()){closeList();return;}
+    if(/^---+$/.test(line.trim())){closeList();out.push('<hr>');return;}
+    var m=line.match(/^(#{1,3})\s+(.*)$/);if(m){closeList();var n=m[1].length;out.push('<h'+n+'>'+mdInline(m[2])+'</h'+n+'>');return;}
+    m=line.match(/^>\s?(.*)$/);if(m){closeList();out.push('<blockquote>'+mdInline(m[1])+'</blockquote>');return;}
+    m=line.match(/^[-*]\s+(.*)$/);if(m){if(list!=='ul'){closeList();list='ul';out.push('<ul>');}out.push('<li>'+mdInline(m[1])+'</li>');return;}
+    m=line.match(/^\d+\.\s+(.*)$/);if(m){if(list!=='ol'){closeList();list='ol';out.push('<ol>');}out.push('<li>'+mdInline(m[1])+'</li>');return;}
+    closeList();out.push('<p>'+mdInline(line)+'</p>');
+  });
+  closeList();if(inCode)out.push('</code></pre>');return out.join('');
+}
+async function openHelp(){
+  var body=$('helpContent');
+  if(!body.dataset.loaded){
+    body.innerHTML='<div class="help-loading">Загрузка руководства...</div>';
+    try{
+      var md=null;
+      if(window.aimetonDesktop&&window.aimetonDesktop.getUserGuide)md=await window.aimetonDesktop.getUserGuide();
+      if(!md){
+        var r=await fetch('docs/USER_GUIDE_RU.md');
+        if(r.ok)md=await r.text();
+      }
+      if(!md)throw new Error('Руководство недоступно');
+      body.innerHTML=renderGuideMarkdown(md);body.dataset.loaded='1';
+    }catch(e){body.innerHTML='<div class="help-error">Не удалось открыть встроенное руководство.<br><small>'+esc(e.message||e)+'</small></div>';}
+  }
+  openModal('helpModal');
+}
+
 function syncScroll(){
   var w=$('tWrap'),t=$('scrollSyncTop');
   if(!w||!t)return;
