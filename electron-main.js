@@ -50,6 +50,15 @@ ipcMain.handle('akid:get-startup-files', () => {
   return { employees, tasks };
 });
 
+ipcMain.handle('akid:get-user-guide', () => {
+  try {
+    const guidePath = path.join(__dirname, 'docs', 'USER_GUIDE_RU.md');
+    return fs.readFileSync(guidePath, 'utf8');
+  } catch (_) {
+    return null;
+  }
+});
+
 ipcMain.on('akid:remember-file', (_event, payload) => {
   if (!payload || !['tasks', 'employees'].includes(payload.kind)) return;
   const filePath = payload.filePath;
