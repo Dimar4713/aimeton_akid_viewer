@@ -1,0 +1,41 @@
+{
+  "name": "aimeton-akid-viewer",
+  "version": "1.1.0",
+  "description": "AIMETON AKID Viewer — автономный просмотрщик и рабочий интерфейс для таблиц АКИД/АКИП",
+  "main": "electron-main.js",
+  "author": "AIMETON",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ru.aimeton.akidviewer",
+    "productName": "AIMETON AKID Viewer",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "app.css",
+      "app.js",
+      "electron-main.js",
+      "lib/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "AIMETON_AKID_Viewer_${version}_Windows_x64.${ext}"
+    }
+  }
+}
