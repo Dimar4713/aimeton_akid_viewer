@@ -168,7 +168,7 @@ jobs:
             $sig = Get-AuthenticodeSignature -FilePath $exe
             Write-Host "$exe Authenticode: $($sig.Status)"
             if ($env:SIGNING_CONFIGURED -and $sig.Status -ne 'Valid') {
-              throw "Signing configured but signature is not valid for $exe: $($sig.Status)"
+              throw "Signing configured but signature is not valid for ${exe}: $($sig.Status)"
             }
           }
           if (-not $env:SIGNING_CONFIGURED) {
