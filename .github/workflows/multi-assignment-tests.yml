@@ -1,0 +1,27 @@
+name: Multi-assignment smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app-multi-assignment.js'
+      - 'tests/multi-assignment-smoke.js'
+      - '.github/workflows/multi-assignment-tests.yml'
+  pull_request:
+    paths:
+      - 'app-multi-assignment.js'
+      - 'tests/multi-assignment-smoke.js'
+      - '.github/workflows/multi-assignment-tests.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript
+        run: node --check app-multi-assignment.js && node --check tests/multi-assignment-smoke.js
+      - name: Verify multi-assignee migration and semantics
+        run: node tests/multi-assignment-smoke.js
