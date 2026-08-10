@@ -28,8 +28,8 @@ Viewer предназначен для удобной работы с плана
 
 ## 2. Что скачать
 
-На странице GitHub Release скачайте в одну папку два файла:
-
+На странице GitHub Release  скачайте в одну папку два файла:
+[Скачать актуальный релиз](https://github.com/Dimar4713/aimeton_akid_viewer/releases/latest) 
 - `AIMETON_AKID_Viewer_<version>_Windows_x64.exe` — сама программа;
 - `UNBLOCK_AKID_VIEWER.bat` — вспомогательный файл для снятия Windows Internet-zone blocking.
 
