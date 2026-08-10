@@ -11,16 +11,83 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create v1.2.3 release
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package.json
+
+      - name: Set v1.2.3 package version
+        shell: pwsh
+        run: npm version 1.2.3 --no-git-tag-version
+
+      - name: Install packaging dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build renderer bundle from sources
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs'); const files=['app-core.js','app-data.js','app-ui.js','app-init.js']; fs.writeFileSync('app.js', files.map(f=>fs.readFileSync(f,'utf8')).join('\n'), 'utf8');"
+
+      - name: Validate source and help renderer
+        shell: pwsh
+        run: |
+          node --check electron-main.js
+          node --check electron-preload.js
+          node --check app.js
+          node --check scripts/build-user-guide-pdf.js
+          $core = Get-Content app-core.js -Raw
+          if ($core -notmatch 'renderGuideMarkdown') { throw 'Markdown renderer is missing.' }
+          if ($core -notmatch 'srcdoc=guideDocument') { throw 'Help is not rendered into formatted HTML.' }
+          if ($core -notmatch "id==='helpModal'\)renderHelpFrame") { throw 'Help modal does not trigger formatted rendering.' }
+          if (-not (Test-Path 'docs/USER_GUIDE_RU.md')) { throw 'Approved user guide is missing.' }
+
+      - name: Build portable Windows EXE
+        run: npm run build:win
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Generate PDF user guide
+        shell: pwsh
+        run: |
+          npx electron scripts/build-user-guide-pdf.js
+          if (-not (Test-Path 'AIMETON_AKID_Viewer_User_Guide_RU.pdf')) { throw 'PDF user guide was not generated.' }
+
+      - name: Verify release files
+        id: files
+        shell: pwsh
+        run: |
+          $exe = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_1.2.3_Windows_x64.exe' -File)
+          if ($exe.Count -ne 1) { throw "Expected one v1.2.3 EXE, found $($exe.Count)." }
+          "exe=$($exe[0].FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Ensure release exists and upload assets
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v1.2.3 >/dev/null 2>&1 || gh release create v1.2.3 \
-            --target "$GITHUB_SHA" \
-            --title 'AIMETON AKID Viewer v1.2.3' \
-            --notes 'Исправлено отображение встроенного руководства пользователя: кнопка [?] теперь открывает отрендеренную справку с заголовками, списками, кодовыми блоками, выделениями и ссылками вместо исходного Markdown. Справка остаётся полностью офлайн и использует утверждённый docs/USER_GUIDE_RU.md как единый источник. В Release автоматически прикладываются portable EXE, UNBLOCK_AKID_VIEWER.bat и PDF-руководство.'
+          gh release view v1.2.3 *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create v1.2.3 --target $env:GITHUB_SHA --title 'AIMETON AKID Viewer v1.2.3' --notes 'Исправлено отображение встроенного руководства пользователя: кнопка [?] открывает отрендеренную справку вместо исходного Markdown.'
+          }
+          gh release upload v1.2.3 "${{ steps.files.outputs.exe }}" "UNBLOCK_AKID_VIEWER.bat" "AIMETON_AKID_Viewer_User_Guide_RU.pdf" --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload v1.2.3 assets.' }
+
+      - name: Verify release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $json = gh release view v1.2.3 --json assets | ConvertFrom-Json
+          $names = @($json.assets | ForEach-Object { $_.name })
+          foreach ($required in @('AIMETON_AKID_Viewer_1.2.3_Windows_x64.exe','UNBLOCK_AKID_VIEWER.bat','AIMETON_AKID_Viewer_User_Guide_RU.pdf')) {
+            if ($names -notcontains $required) { throw "Release asset missing: $required" }
+          }
+          Write-Host ('Release assets: ' + ($names -join ', '))
