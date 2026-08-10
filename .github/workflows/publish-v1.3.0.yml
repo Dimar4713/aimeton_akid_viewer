@@ -1,0 +1,121 @@
+name: Publish AIMETON AKID Viewer v1.3.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v1.3.0.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package.json
+
+      - name: Set v1.3.0 package version
+        shell: pwsh
+        run: npm version 1.3.0 --no-git-tag-version
+
+      - name: Install packaging dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build renderer bundle
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs'); const files=['app-core.js','app-data.js','app-ui.js','app-multi-assignment.js','app-init.js']; fs.writeFileSync('app.js', files.map(f=>fs.readFileSync(f,'utf8')).join('\n'), 'utf8');"
+          node --check app.js
+          node tests/multi-assignment-smoke.js
+
+      - name: Build modern Windows x64 EXE
+        run: npm run build:win
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Preserve modern EXE
+        id: modern
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          $exe = @(Get-ChildItem dist -Filter 'AIMETON_AKID_Viewer_1.3.0_Windows_x64.exe' -File)
+          if ($exe.Count -ne 1) { throw "Expected one modern v1.3.0 EXE, found $($exe.Count)." }
+          $dest = Join-Path (Resolve-Path release-assets) $exe[0].Name
+          Copy-Item $exe[0].FullName $dest
+          "path=$dest" >> $env:GITHUB_OUTPUT
+
+      - name: Generate PDF guide
+        shell: pwsh
+        run: |
+          npx electron scripts/build-user-guide-pdf.js
+          if (-not (Test-Path 'AIMETON_AKID_Viewer_User_Guide_RU.pdf')) { throw 'PDF guide missing.' }
+
+      - name: Switch to Electron 22.3.27 for Windows 7
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false electron@22.3.27
+          $v = node -p "require('electron/package.json').version"
+          if ($v -ne '22.3.27') { throw "Expected Electron 22.3.27, got $v" }
+          npm pkg set main=electron-main-win7.js
+          npm pkg set 'build.win.artifactName=AIMETON_AKID_Viewer_${version}_Windows7_x64.${ext}'
+
+      - name: Build Windows 7 x64 Legacy EXE
+        run: npm run build:win
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Preserve Windows 7 EXE
+        id: win7
+        shell: pwsh
+        run: |
+          $exe = @(Get-ChildItem dist -Filter 'AIMETON_AKID_Viewer_1.3.0_Windows7_x64.exe' -File)
+          if ($exe.Count -ne 1) { throw "Expected one Windows 7 v1.3.0 EXE, found $($exe.Count)." }
+          $dest = Join-Path (Resolve-Path release-assets) $exe[0].Name
+          Copy-Item $exe[0].FullName $dest
+          "path=$dest" >> $env:GITHUB_OUTPUT
+
+      - name: Create release and upload assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.3.0 *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create v1.3.0 --target $env:GITHUB_SHA --title 'AIMETON AKID Viewer v1.3.0' --notes @'
+          По результатам эксплуатации добавлены:
+          - несколько исполнителей на одной задаче;
+          - группировка «Назначенные исполнители» — совместная задача показывается у каждого назначенного человека;
+          - совместные назначения учитываются в персональных выдачах и XLSX-экспорте;
+          - отдельная Windows 7 x64 Legacy-сборка на Electron 22.3.27;
+          - сохранена современная Windows 10/11 x64 сборка;
+          - встроенная отрендеренная справка [?], PDF-руководство и BAT-разблокировка.
+
+          Windows 7 build является Legacy: Electron 22 находится вне upstream-поддержки. Перед широким распространением требуется smoke-test на реальном Windows 7 ПК.
+          '@
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to create v1.3.0 release.' }
+          gh release upload v1.3.0 "${{ steps.modern.outputs.path }}" "${{ steps.win7.outputs.path }}" "UNBLOCK_AKID_VIEWER.bat" "AIMETON_AKID_Viewer_User_Guide_RU.pdf" --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to upload v1.3.0 assets.' }
+
+      - name: Verify release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $json = gh release view v1.3.0 --json assets | ConvertFrom-Json
+          $names = @($json.assets | ForEach-Object { $_.name })
+          foreach ($required in @('AIMETON_AKID_Viewer_1.3.0_Windows_x64.exe','AIMETON_AKID_Viewer_1.3.0_Windows7_x64.exe','UNBLOCK_AKID_VIEWER.bat','AIMETON_AKID_Viewer_User_Guide_RU.pdf')) {
+            if ($names -notcontains $required) { throw "Release asset missing: $required" }
+          }
+          Write-Host ('Release assets: ' + ($names -join ', '))
