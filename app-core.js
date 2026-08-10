@@ -3,7 +3,7 @@ var $=function(id){return document.getElementById(id);};
 var esc=function(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';};
 var escA=function(s){return s?String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"):'';};
 function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2500);}
-function openModal(id){$(id).classList.add('show');}
+function openModal(id){$(id).classList.add('show');if(id==='helpModal')renderHelpFrame();}
 function closeModal(id){$(id).classList.remove('show');}
 function closeDDs(){document.querySelectorAll('.fd,.cp').forEach(function(d){d.classList.remove('show');});}
 function toggleDD(el,id){var dd=$(id);if(!dd)return;var w=dd.classList.contains('show');closeDDs();if(!w)dd.classList.add('show');}
@@ -42,7 +42,14 @@ function importConfig(file){
   r.readAsText(file,'utf-8');
 }
 
-function mdInline(s){return esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');}
+function mdInline(s){
+  var x=esc(s);
+  x=x.replace(/`([^`]+)`/g,'<code>$1</code>');
+  x=x.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  x=x.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  x=x.replace(/(^|[\s>])(https?:\/\/[^\s<]+)/g,'$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>');
+  return x;
+}
 function renderGuideMarkdown(md){
   var out=[],inCode=false,list=null;
   function closeList(){if(list){out.push('</'+list+'>');list=null;}}
@@ -59,23 +66,31 @@ function renderGuideMarkdown(md){
   });
   closeList();if(inCode)out.push('</code></pre>');return out.join('');
 }
-async function openHelp(){
-  var body=$('helpContent');
-  if(!body.dataset.loaded){
-    body.innerHTML='<div class="help-loading">Загрузка руководства...</div>';
-    try{
-      var md=null;
-      if(window.aimetonDesktop&&window.aimetonDesktop.getUserGuide)md=await window.aimetonDesktop.getUserGuide();
-      if(!md){
-        var r=await fetch('docs/USER_GUIDE_RU.md');
-        if(r.ok)md=await r.text();
-      }
-      if(!md)throw new Error('Руководство недоступно');
-      body.innerHTML=renderGuideMarkdown(md);body.dataset.loaded='1';
-    }catch(e){body.innerHTML='<div class="help-error">Не удалось открыть встроенное руководство.<br><small>'+esc(e.message||e)+'</small></div>';}
-  }
-  openModal('helpModal');
+function guideDocument(md){
+  var dark=document.documentElement.getAttribute('data-theme')==='dark';
+  var bg=dark?'#0F1520':'#FFFFFF',fg=dark?'#E8EDF3':'#0F172A',muted=dark?'#A5B4C4':'#475569',accent=dark?'#00D4AA':'#047857',panel=dark?'#151D2B':'#F8FAFC',border=dark?'#2A3A50':'#CBD5E1';
+  return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>'+
+  'html{background:'+bg+';color:'+fg+'}body{font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:0 auto;padding:28px 34px 48px;line-height:1.62;font-size:14px}h1{font-size:28px;margin:0 0 22px;line-height:1.2}h2{font-size:21px;margin:32px 0 12px;padding-bottom:7px;border-bottom:1px solid '+border+'}h3{font-size:17px;margin:24px 0 10px}p{margin:9px 0;color:'+fg+'}ul,ol{margin:9px 0 14px 25px}li{margin:5px 0}strong{font-weight:700}code{font-family:Consolas,monospace;background:'+panel+';border:1px solid '+border+';border-radius:5px;padding:1px 5px;font-size:.92em}pre{background:'+panel+';border:1px solid '+border+';border-radius:8px;padding:14px 16px;overflow:auto;margin:12px 0}pre code{border:0;padding:0;background:transparent}blockquote{margin:14px 0;padding:10px 14px;border-left:3px solid '+accent+';background:'+panel+';color:'+muted+'}hr{border:0;border-top:1px solid '+border+';margin:28px 0}a{color:'+accent+';text-decoration:none}a:hover{text-decoration:underline}@media(max-width:640px){body{padding:20px 18px 36px;font-size:13px}h1{font-size:23px}h2{font-size:19px}}'+
+  '</style></head><body>'+renderGuideMarkdown(md)+'</body></html>';
 }
+async function loadGuideMarkdown(){
+  var md=null;
+  if(window.aimetonDesktop&&window.aimetonDesktop.getUserGuide)md=await window.aimetonDesktop.getUserGuide();
+  if(!md){var r=await fetch('docs/USER_GUIDE_RU.md');if(r.ok)md=await r.text();}
+  if(!md)throw new Error('Руководство недоступно');
+  return md;
+}
+async function renderHelpFrame(){
+  var frame=document.querySelector('#helpModal .help-frame');if(!frame)return;
+  if(frame.dataset.loaded==='1'&&frame.dataset.theme===document.documentElement.getAttribute('data-theme'))return;
+  try{
+    var md=await loadGuideMarkdown();
+    frame.removeAttribute('src');
+    frame.srcdoc=guideDocument(md);
+    frame.dataset.loaded='1';frame.dataset.theme=document.documentElement.getAttribute('data-theme');
+  }catch(e){frame.removeAttribute('src');frame.srcdoc='<!doctype html><meta charset="utf-8"><body style="font-family:Segoe UI,Arial,sans-serif;padding:24px"><h2>Не удалось открыть руководство</h2><p>'+esc(e.message||e)+'</p></body>';}
+}
+async function openHelp(){openModal('helpModal');}
 
 function syncScroll(){
   var w=$('tWrap'),t=$('scrollSyncTop');
@@ -88,7 +103,7 @@ function syncScroll(){
 
 S.saved=safeLS('pm_sv')||[];
 function copyTxt(id){var ta=$(id);navigator.clipboard.writeText(ta.value).then(function(){toast('Скопировано');}).catch(function(){ta.select();document.execCommand('copy');toast('Скопировано');});}
-function toggleTheme(){var h=document.documentElement;var n=h.getAttribute('data-theme')==='dark'?'light':'dark';h.setAttribute('data-theme',n);safeLS('pm_theme',n);updThemeBtn(n);}
+function toggleTheme(){var h=document.documentElement;var n=h.getAttribute('data-theme')==='dark'?'light':'dark';h.setAttribute('data-theme',n);safeLS('pm_theme',n);updThemeBtn(n);var f=document.querySelector('#helpModal .help-frame');if(f)f.dataset.loaded='0';}
 function updThemeBtn(t){$('themeBtn').innerHTML=t==='dark'?'<i class="fa-solid fa-sun"></i>':'<i class="fa-solid fa-moon"></i>';}
 (function(){var t=safeLS('pm_theme');if(t){document.documentElement.setAttribute('data-theme',t);updThemeBtn(t);}})();
 
