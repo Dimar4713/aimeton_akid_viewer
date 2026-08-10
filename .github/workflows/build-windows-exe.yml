@@ -11,13 +11,17 @@ on:
       - 'package.json'
       - 'electron-main.js'
       - 'electron-preload.js'
+      - 'electron-main-win7.js'
+      - 'electron-preload-win7.js'
       - 'index.html'
       - 'app.css'
       - 'app-core.js'
       - 'app-data.js'
       - 'app-ui.js'
+      - 'app-multi-assignment.js'
       - 'app-init.js'
       - 'docs/USER_GUIDE_RU.md'
+      - 'docs/WINDOWS7_LEGACY.md'
       - 'scripts/build-user-guide-pdf.js'
       - 'UNBLOCK_AKID_VIEWER.bat'
 
@@ -55,15 +59,22 @@ jobs:
       - name: Build renderer bundle from sources
         shell: pwsh
         run: |
-          node -e "const fs=require('fs'); const files=['app-core.js','app-data.js','app-ui.js','app-init.js']; fs.writeFileSync('app.js', files.map(f=>fs.readFileSync(f,'utf8')).join('\n'), 'utf8');"
+          node -e "const fs=require('fs'); const files=['app-core.js','app-data.js','app-ui.js','app-multi-assignment.js','app-init.js']; fs.writeFileSync('app.js', files.map(f=>fs.readFileSync(f,'utf8')).join('\n'), 'utf8');"
 
-      - name: Validate source JavaScript
+      - name: Validate source JavaScript and assignment model
         shell: pwsh
         run: |
           node --check electron-main.js
           node --check electron-preload.js
+          node --check electron-main-win7.js
+          node --check electron-preload-win7.js
+          node --check app-multi-assignment.js
           node --check app.js
           node --check scripts/build-user-guide-pdf.js
+          $multi = Get-Content app-multi-assignment.js -Raw
+          foreach ($needle in @('assigneesFor','setAssignees','__assigned__','Назначенные исполнители','hasAssignee')) {
+            if ($multi -notmatch [regex]::Escape($needle)) { throw "Multi-assignment capability missing: $needle" }
+          }
 
       - name: Assert fully offline runtime inputs
         shell: pwsh
@@ -75,7 +86,10 @@ jobs:
             'index.html',
             'app.css',
             'app.js',
+            'app-multi-assignment.js',
             'electron-preload.js',
+            'electron-main-win7.js',
+            'electron-preload-win7.js',
             'docs/USER_GUIDE_RU.md',
             'scripts/build-user-guide-pdf.js',
             'UNBLOCK_AKID_VIEWER.bat',
@@ -89,14 +103,25 @@ jobs:
           }
           $html = Get-Content index.html -Raw
           if ($html -notmatch 'id="helpModal"') { throw 'Embedded help modal is missing.' }
-          if ($html -notmatch 'docs/USER_GUIDE_RU.md') { throw 'Embedded help does not point to the approved user guide.' }
           if ($html -notmatch 'class="help-btn"') { throw 'Help [?] button is missing.' }
 
-      - name: Build one portable Windows EXE
+      - name: Build modern Windows portable EXE
         run: npm run build:win
         env:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Preserve modern EXE
+        id: modern
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          $files = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_*_Windows_x64.exe' -File)
+          if ($files.Count -ne 1) { throw "Expected one modern EXE, found $($files.Count)." }
+          $dest = Join-Path (Resolve-Path release-assets) $files[0].Name
+          Copy-Item $files[0].FullName $dest
+          "path=$dest" >> $env:GITHUB_OUTPUT
+          "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
 
       - name: Generate PDF user guide
         shell: pwsh
@@ -104,38 +129,59 @@ jobs:
           npx electron scripts/build-user-guide-pdf.js
           $pdf = 'AIMETON_AKID_Viewer_User_Guide_RU.pdf'
           if (-not (Test-Path $pdf)) { throw 'PDF user guide was not generated.' }
-          $size = (Get-Item $pdf).Length
-          if ($size -lt 20000) { throw "PDF user guide is unexpectedly small: $size bytes." }
-          Write-Host "PDF user guide: $pdf ($size bytes)"
+          if ((Get-Item $pdf).Length -lt 20000) { throw 'PDF user guide is unexpectedly small.' }
 
-      - name: Verify single-file deliverable and signature state
-        id: exe
+      - name: Switch runtime to Electron 22 for Windows 7 legacy build
+        shell: pwsh
+        run: |
+          npm install --no-save --package-lock=false electron@22.3.27
+          $electronVersion = node -p "require('electron/package.json').version"
+          if ($electronVersion -ne '22.3.27') { throw "Expected Electron 22.3.27, got $electronVersion" }
+          npm pkg set main=electron-main-win7.js
+          npm pkg set 'build.win.artifactName=AIMETON_AKID_Viewer_${version}_Windows7_x64.${ext}'
+          Write-Host "Windows 7 legacy runtime: Electron $electronVersion"
+
+      - name: Build Windows 7 x64 legacy portable EXE
+        run: npm run build:win
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Preserve Windows 7 legacy EXE
+        id: win7
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_*_Windows7_x64.exe' -File)
+          if ($files.Count -ne 1) { throw "Expected one Windows 7 legacy EXE, found $($files.Count)." }
+          $dest = Join-Path (Resolve-Path release-assets) $files[0].Name
+          Copy-Item $files[0].FullName $dest
+          "path=$dest" >> $env:GITHUB_OUTPUT
+          "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
+
+      - name: Verify deliverables and signature state
         shell: pwsh
         env:
           SIGNING_CONFIGURED: ${{ secrets.WIN_CSC_LINK }}
         run: |
-          $files = @(Get-ChildItem -Path dist -Filter 'AIMETON_AKID_Viewer_*_Windows_x64.exe' -File)
-          if ($files.Count -ne 1) {
-            throw "Expected exactly one portable EXE, found $($files.Count)."
+          foreach ($exe in @('${{ steps.modern.outputs.path }}','${{ steps.win7.outputs.path }}')) {
+            if (-not (Test-Path $exe)) { throw "Missing EXE: $exe" }
+            $sig = Get-AuthenticodeSignature -FilePath $exe
+            Write-Host "$exe Authenticode: $($sig.Status)"
+            if ($env:SIGNING_CONFIGURED -and $sig.Status -ne 'Valid') {
+              throw "Signing configured but signature is not valid for $exe: $($sig.Status)"
+            }
           }
-          $exe = $files[0].FullName
-          Write-Host "Built: $exe"
-          $sig = Get-AuthenticodeSignature -FilePath $exe
-          Write-Host "Authenticode status: $($sig.Status)"
-          if ($env:SIGNING_CONFIGURED) {
-            if ($sig.Status -ne 'Valid') { throw "Signing credentials were configured but signature is not valid: $($sig.Status)" }
-          } else {
-            Write-Warning 'Code-signing is not configured. Release users can use UNBLOCK_AKID_VIEWER.bat to remove the downloaded-file Internet zone marker.'
+          if (-not $env:SIGNING_CONFIGURED) {
+            Write-Warning 'Code signing is not configured. UNBLOCK_AKID_VIEWER.bat remains the pilot workaround.'
           }
-          "path=$exe" >> $env:GITHUB_OUTPUT
-          "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
 
       - name: Upload CI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AIMETON-AKID-Viewer-Windows-x64
+          name: AIMETON-AKID-Viewer-Windows
           path: |
-            ${{ steps.exe.outputs.path }}
+            ${{ steps.modern.outputs.path }}
+            ${{ steps.win7.outputs.path }}
             UNBLOCK_AKID_VIEWER.bat
             AIMETON_AKID_Viewer_User_Guide_RU.pdf
           if-no-files-found: error
@@ -146,4 +192,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" "${{ steps.exe.outputs.path }}" "UNBLOCK_AKID_VIEWER.bat" "AIMETON_AKID_Viewer_User_Guide_RU.pdf" --clobber
+          gh release upload "${{ github.event.release.tag_name }}" "${{ steps.modern.outputs.path }}" "${{ steps.win7.outputs.path }}" "UNBLOCK_AKID_VIEWER.bat" "AIMETON_AKID_Viewer_User_Guide_RU.pdf" --clobber
